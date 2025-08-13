@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { baseProcedure, createTRPCRouter } from "../init";
 import { inngest } from "@/inngest/client";
+import { openai } from "inngest";
+
 export const appRouter = createTRPCRouter({
   invoke: baseProcedure
     .input(
