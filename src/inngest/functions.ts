@@ -42,7 +42,7 @@ export const codingAgentFunction = inngest.createFunction(
       model: openai({
         model: "gpt-4.1",
         defaultParameters: {
-          temperature: 0.1,
+          temperature: 0.9,
         },
       }),
       tools: [
@@ -204,6 +204,7 @@ export const codingAgentFunction = inngest.createFunction(
       if (isError) {
         return await prisma.message.create({
           data: {
+            projectId: event.data.projectId,
             content: "Something went wrong! Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
@@ -213,6 +214,7 @@ export const codingAgentFunction = inngest.createFunction(
 
       return await prisma.message.create({
         data: {
+          projectId: event.data.projectId,
           content: result.state.data.summary,
           role: "ASSISTANT",
           type: "RESULT",
