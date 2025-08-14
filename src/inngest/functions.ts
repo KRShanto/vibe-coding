@@ -6,33 +6,17 @@ import {
   createAgent,
   createTool,
   createNetwork,
+  type Tool,
 } from "@inngest/agent-kit";
 import { z } from "zod";
 
 import { PROMPT } from "@/lib/prompt";
+import { prisma } from "@/lib/prisma";
 
-export const helloWorld = inngest.createFunction(
-  {
-    id: "hello-world",
-  },
-  {
-    event: "hello.world",
-  },
-  async ({ step }) => {
-    const sandboxId = await step.run("get-sandbox-id", async () => {
-      const sandbox = await Sandbox.create("vibe-coding-next");
-      return sandbox.sandboxId;
-    });
-
-    const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
-      const host = sandbox.getHost(3000);
-      return `https://${host}`;
-    });
-
-    return { message: `Sandbox url:  ${sandboxUrl}` };
-  }
-);
+interface AgentState {
+  summary: string;
+  files: { [path: string]: string };
+}
 
 export const codingAgentFunction = inngest.createFunction(
   { id: "coding-agent" },
@@ -51,7 +35,7 @@ export const codingAgentFunction = inngest.createFunction(
       return `https://${host}`;
     });
 
-    const codeAgent = createAgent({
+    const codeAgent = createAgent<AgentState>({
       name: "code-agent",
       system: PROMPT,
       description: "An expert coding agent",
@@ -117,7 +101,10 @@ export const codingAgentFunction = inngest.createFunction(
                 .describe("List of files to create or update"),
             })
             .strict(),
-          handler: async ({ files }, { step, network }) => {
+          handler: async (
+            { files },
+            { step, network }: Tool.Options<AgentState>
+          ) => {
             const newFiles = await step?.run(
               "create-or-update-files",
               async () => {
@@ -189,7 +176,7 @@ export const codingAgentFunction = inngest.createFunction(
       },
     });
 
-    const network = createNetwork({
+    const network = createNetwork<AgentState>({
       name: "code-agent-network",
       agents: [codeAgent],
       maxIter: 15,
@@ -206,7 +193,39 @@ export const codingAgentFunction = inngest.createFunction(
 
     const prompt =
       (event.data as any)?.text ?? (event.data as any)?.value ?? "";
+
     const result = await network.run(prompt);
+
+    const isError =
+      !result.state.data.summary ||
+      Object.keys(result.state.data.files || {}).length === 0;
+
+    await step.run("save-result", async () => {
+      if (isError) {
+        return await prisma.message.create({
+          data: {
+            content: "Something went wrong! Please try again.",
+            role: "ASSISTANT",
+            type: "ERROR",
+          },
+        });
+      }
+
+      return await prisma.message.create({
+        data: {
+          content: result.state.data.summary,
+          role: "ASSISTANT",
+          type: "RESULT",
+          Fragment: {
+            create: {
+              sandboxUrl,
+              title: "Fragment",
+              files: result.state.data.files || {},
+            },
+          },
+        },
+      });
+    });
 
     // Return something to avoid unused variable lint errors
     return {
