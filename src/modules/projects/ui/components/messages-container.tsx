@@ -31,15 +31,16 @@ export function MessagesContainer({
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const lastAssistantMessageWithFragment = messages.findLast(
-      (msg) => msg.role === "ASSISTANT" && !!msg.Fragment
-    );
+  // TODO: this is causing problems
+  // useEffect(() => {
+  //   const lastAssistantMessageWithFragment = messages.findLast(
+  //     (msg) => msg.role === "ASSISTANT" && !!msg.Fragment
+  //   );
 
-    if (lastAssistantMessageWithFragment) {
-      setActiveFragment(lastAssistantMessageWithFragment.Fragment);
-    }
-  }, [messages, setActiveFragment]);
+  //   if (lastAssistantMessageWithFragment) {
+  //     setActiveFragment(lastAssistantMessageWithFragment.Fragment);
+  //   }
+  // }, [messages, setActiveFragment]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
